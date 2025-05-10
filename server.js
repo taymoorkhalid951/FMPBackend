@@ -17,6 +17,7 @@ app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/services", require("./routes/serviceRoutes"));
 app.use("/api/orders", require("./routes/orderRoutes"));
 app.use("/api/reviews", require("./routes/reviewRoutes"));
+app.use("/api/notifications", require("./routes/notificationRoutes"));
 
 // Error Handler (last middleware)
 app.use(errorHandler);
