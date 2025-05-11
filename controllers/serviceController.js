@@ -1,4 +1,5 @@
 const Service = require("../models/Service");
+const Review = require("../models/Review");
 
 // @desc    Create a service
 exports.createService = async (req, res, next) => {
@@ -33,25 +34,57 @@ exports.getServices = async (req, res, next) => {
           $or: [
             { title: { $regex: req.query.keyword, $options: "i" } },
             { category: { $regex: req.query.keyword, $options: "i" } },
+            { description: { $regex: req.query.keyword, $options: "i" } },
             { tags: { $in: [new RegExp(req.query.keyword, "i")] } },
           ],
+          ...(req.query.category && {
+            $and: [{ category: req.query.category }],
+          }),
+        }
+      : {};
+    const category = req.query.category
+      ? {
+          $and: [{ category: req.query.category }],
         }
       : {};
 
     const filters = {
+      ...category,
       ...keyword,
-      price: {
-        ...(req.query.minPrice && { $gte: Number(req.query.minPrice) }),
-        ...(req.query.maxPrice && { $lte: Number(req.query.maxPrice) }),
-      },
+      ...((req.query.minPrice || req.query.maxPrice) && {
+        price: {
+          ...(req.query.minPrice && { $gte: Number(req.query.minPrice) }),
+          ...(req.query.maxPrice && { $lte: Number(req.query.maxPrice) }),
+        },
+      }),
     };
 
     const total = await Service.countDocuments(filters);
-    const services = await Service.find(filters)
+    let services = await Service.find(filters)
       .populate("seller", "name email")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
-      .limit(limit);
+      .limit(limit)
+      .exec();
+
+    const ratings = await Review.aggregate([
+      {
+        $match: {
+          target: { $in: services.map((s) => s._id) },
+        },
+      },
+      {
+        $group: {
+          _id: "$target",
+          rating: { $avg: "$rating" },
+        },
+      },
+    ]).exec();
+
+    services = services.map((s) => {
+      const rating = ratings.find((r) => String(r._id) === String(s._id));
+      return { ...s._doc, rating: rating?.rating || 0 };
+    });
 
     res.json({
       services,
