@@ -4,8 +4,9 @@ const Review = require("../models/Review");
 // @desc    Create a service
 exports.createService = async (req, res, next) => {
   try {
-    const { title, description, category, price, deliveryTime, tags, images } =
+    const { title, description, category, price, deliveryTime, tags } =
       req.body;
+    const imageUrls = req.files.map((file) => file.path);
     const service = new Service({
       title,
       description,
@@ -13,7 +14,7 @@ exports.createService = async (req, res, next) => {
       price,
       deliveryTime,
       tags,
-      images,
+      images: imageUrls,
       seller: req.user._id,
     });
 
@@ -127,6 +128,22 @@ exports.updateService = async (req, res, next) => {
     const updated = await service.save();
 
     res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// @desc    Get services by user ID
+exports.getServicesByUserId = async (req, res, next) => {
+  try {
+    const services = await Service.find({ seller: req.params.userId })
+      .populate("seller", "name email")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      services,
+      total: services.length,
+    });
   } catch (err) {
     next(err);
   }
